@@ -16,7 +16,15 @@ import os
 import json
 
 def normalize(x):
-    return x*(50*0.0000001**x+1)
+    multiplier = (15*0.005**x+1)
+    res = x*multiplier
+    if res < 0.05:
+        res = res * 6
+    elif res < 0.1:
+        res = res * 4
+    elif res < 0.2:
+        res = res * 2.5
+    return res
 
 def plot_bar(data, length):
     time = np.linspace(0., length, data.shape[0])
@@ -151,6 +159,9 @@ class AHAP:
             }
         ]
         self.add_event(etype="AudioCustom",time=time,parameters=parameters,event_waveform_path=wav_filepath)
+        
+    def add_parameter_curve():
+        
         
         
     def print_data(self):

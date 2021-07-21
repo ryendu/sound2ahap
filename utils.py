@@ -14,6 +14,8 @@ from pyAudioAnalysis import ShortTermFeatures
 import datetime
 import os
 import json
+import librosa
+import librosa.display
 
 
 def normalize(x):
@@ -26,6 +28,141 @@ def normalize(x):
     elif res < 0.2:
         res = res * 2.5
     return res
+
+
+def RMSE(data):  # source - https://rramnauth2220.github.io/blog/posts/code/200525-feature-extraction.html
+    hop_length = 256
+    frame_length = 512
+
+    # compute sum of signal square by frame
+    energy = np.array([
+        sum(abs(data[i:i+frame_length]**2))
+        for i in range(0, len(data), hop_length)
+    ])
+    energy.shape
+
+    # compute RMSE over frames
+    rmse = librosa.feature.rms(
+        data, frame_length=frame_length, hop_length=hop_length, center=True)
+    rmse.shape
+    rmse = rmse[0]
+    return rmse
+
+# source: https://github.com/librosa/librosa/blob/main/examples/LibROSA%20demo.ipynb
+
+
+def mel_sync(M, beats, plot=False):
+    # feature.sync will summarize each beat event by the mean feature vector within that beat
+    M_sync = librosa.util.sync(M, beats)
+    if plot:
+        plt.figure(figsize=(12, 6))
+        # Let's plot the original and beat-synchronous features against each other
+        plt.subplot(2, 1, 1)
+        librosa.display.specshow(M)
+        plt.title('MFCC-$\Delta$-$\Delta^2$')
+        plt.yticks(np.arange(0, M.shape[0], 13), [
+                   'MFCC', '$\Delta$', '$\Delta^2$'])
+        plt.colorbar()
+        plt.subplot(2, 1, 2)
+        librosa.display.specshow(M_sync, x_axis='time',
+                                 x_coords=librosa.frames_to_time(librosa.util.fix_frames(beats)))
+        plt.yticks(np.arange(0, M_sync.shape[0], 13), [
+                   'MFCC', '$\Delta$', '$\Delta^2$'])
+        plt.title('Beat-synchronous MFCC-$\Delta$-$\Delta^2$')
+        plt.colorbar()
+        plt.tight_layout()
+    return M_sync
+
+
+# source: https://github.com/librosa/librosa/blob/main/examples/LibROSA%20demo.ipynb
+def beat_sync_chroma(C, beats, samplerate, plot=False):
+    C_sync = librosa.util.sync(C, beats, aggregate=np.median)
+    if plot:
+        plt.figure(figsize=(12, 6))
+        plt.subplot(2, 1, 1)
+        librosa.display.specshow(
+            C_harmonic, sr=samplerate, y_axis='chroma', vmin=0.0, vmax=1.0, x_axis='time')
+        plt.title('Chroma')
+        plt.colorbar()
+        plt.subplot(2, 1, 2)
+        librosa.display.specshow(C_sync, y_axis='chroma', vmin=0.0, vmax=1.0, x_axis='time',
+                                 x_coords=librosa.frames_to_time(librosa.util.fix_frames(beats)))
+        plt.title('Beat-synchronous Chroma (median aggregation)')
+        plt.colorbar()
+        plt.tight_layout()
+    return C_sync
+
+# source: https://github.com/librosa/librosa/blob/main/examples/LibROSA%20demo.ipynb
+
+
+def melspect(data, samplerate, plot=False, title='mel power spectrogram'):
+    S = librosa.feature.melspectrogram(data, sr=samplerate, n_mels=128)
+    log_S = librosa.power_to_db(S, ref=np.max)
+    if plot:
+        plt.figure(figsize=(12, 4))
+        librosa.display.specshow(log_S, sr=samplerate,
+                                 x_axis='time', y_axis='mel')
+        plt.title(title)
+        plt.colorbar(format='%+02.0f dB')
+        plt.tight_layout()
+    return S
+
+
+# source: https://github.com/librosa/librosa/blob/main/examples/LibROSA%20demo.ipynb
+def track_beats(precussive, samplerate, plot=False, log_S=None):
+    tempo, beats = librosa.beat.beat_track(
+        y=precussive, sr=samplerate, units="time")
+    if plot:
+        plt.figure(figsize=(12, 4))
+        librosa.display.specshow(log_S, sr=samplerate,
+                                 x_axis='time', y_axis='mel')
+        # Let's draw transparent lines over the beat frames
+        plt.vlines(librosa.frames_to_time(beats),
+                   1, 0.5 * samplerate,
+                   colors='w', linestyles='-', linewidth=2, alpha=0.5)
+        plt.axis('tight')
+        plt.colorbar(format='%+02.0f dB')
+        plt.tight_layout()
+        plt.show()
+    return tempo, beats
+
+
+# source: https://github.com/librosa/librosa/blob/main/examples/LibROSA%20demo.ipynb
+def chromagram(data, samplerate, plot=True, title="Chromagram"):
+    C = librosa.feature.chroma_cqt(y=data, sr=samplerate, bins_per_octave=36)
+    if plot:
+        plt.figure(figsize=(12, 4))
+        librosa.display.specshow(
+            C, sr=samplerate, x_axis='time', y_axis='chroma', vmin=0, vmax=1)
+        plt.title(title)
+        plt.colorbar()
+        plt.tight_layout()
+    return C
+
+
+# source: https://github.com/librosa/librosa/blob/main/examples/LibROSA%20demo.ipynb
+def MFCC(S, samplerate, plot=False):
+    mfcc = librosa.feature.mfcc(
+        S=librosa.power_to_db(S, ref=np.max), n_mfcc=13)
+    delta_mfcc = librosa.feature.delta(mfcc)
+    delta2_mfcc = librosa.feature.delta(mfcc, order=2)
+    if plot:
+        plt.figure(figsize=(12, 6))
+        plt.subplot(3, 1, 1)
+        librosa.display.specshow(mfcc)
+        plt.ylabel('MFCC')
+        plt.colorbar()
+        plt.subplot(3, 1, 2)
+        librosa.display.specshow(delta_mfcc)
+        plt.ylabel('MFCC-$\Delta$')
+        plt.colorbar()
+        plt.subplot(3, 1, 3)
+        librosa.display.specshow(delta2_mfcc, sr=samplerate, x_axis='time')
+        plt.ylabel('MFCC-$\Delta^2$')
+        plt.colorbar()
+        plt.tight_layout()
+    M = np.vstack([mfcc, delta_mfcc, delta2_mfcc])
+    return M
 
 
 def plot_bar(data, length):

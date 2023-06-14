@@ -1,16 +1,7 @@
-import sklearn
-import scipy
-import torch
-from torch import nn
-from torch import functional as F
 import numpy as np
 from matplotlib import pyplot as plt
-from pydub import AudioSegment
-from pydub.playback import play
 from scipy.io import wavfile
 from scipy import signal
-import pyAudioAnalysis
-from pyAudioAnalysis import ShortTermFeatures
 import datetime
 import os
 import json
@@ -43,7 +34,7 @@ def RMSE(data):  # source - https://rramnauth2220.github.io/blog/posts/code/2005
 
     # compute RMSE over frames
     rmse = librosa.feature.rms(
-        data, frame_length=frame_length, hop_length=hop_length, center=True)
+        y=data, frame_length=frame_length, hop_length=hop_length, center=True)
     rmse.shape
     rmse = rmse[0]
     return rmse
@@ -96,7 +87,7 @@ def beat_sync_chroma(C, beats, samplerate, plot=False):
 
 
 def melspect(data, samplerate, plot=False, title='mel power spectrogram'):
-    S = librosa.feature.melspectrogram(data, sr=samplerate, n_mels=128)
+    S = librosa.feature.melspectrogram(y=data, sr=samplerate, n_mels=128)
     log_S = librosa.power_to_db(S, ref=np.max)
     if plot:
         plt.figure(figsize=(12, 4))
